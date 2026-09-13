@@ -1,0 +1,6 @@
+{
+  "demo": {
+    "whatsappEnabled": true,
+    "whatsappProvider": "WATI"
+  }
+}
