@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const tokenOrSlug = body.webhook_token || body.token || body.orgSlug || body.org_slug;
+    const tokenOrSlug = body.webhook_token || body.token;
 
     if (!tokenOrSlug) {
       return corsResponse(
@@ -79,36 +79,22 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Find organization by slug or token
-    let org: any = null;
-    const { data: slugOrgs } = await supabase
-      .from("organizations")
-      .select("*")
-      .eq("slug", tokenOrSlug)
-      .limit(1);
-
-    if (slugOrgs && slugOrgs.length > 0) {
-      org = slugOrgs[0];
-    } else {
-      try {
-        const { data: tokenOrgs } = await supabase
-          .from("organizations")
-          .select("*")
-          .eq("webhook_token" as any, tokenOrSlug)
-          .limit(1);
-        if (tokenOrgs && tokenOrgs.length > 0) {
-          org = tokenOrgs[0];
-        }
-      } catch {
-        // ignore
-      }
+    // Public ingestion is authenticated only by a high-entropy webhook token.
+    if (typeof tokenOrSlug !== "string" || tokenOrSlug.length < 24 || tokenOrSlug.length > 200) {
+      return corsResponse({ success: false, error: "Valid webhook token required" }, 401);
     }
 
-    if (!org) {
-      return corsResponse(
-        { success: false, error: "Invalid organization identifier or token" },
-        404
-      );
+    const supabase = createAdminClient();
+    const { data: orgs, error: orgError } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("webhook_token" as any, tokenOrSlug)
+      .eq("status", "ACTIVE")
+      .limit(1);
+
+    const org: any = orgs?.[0] || null;
+    if (orgError || !org) {
+      return corsResponse({ success: false, error: "Invalid webhook token" }, 401);
     }
 
     // Insert lead
