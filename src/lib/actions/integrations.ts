@@ -55,12 +55,12 @@ export async function getOrganizationIntegrations(): Promise<OrgIntegrationsConf
       return null;
     }
 
-    const fallbackToken = org.slug ? `tk_${org.slug}_${org.id.slice(0, 8)}` : `tk_${org.id.slice(0, 12)}`;
+
 
     return {
       orgSlug: org.slug || "business",
-      webhookToken: (org as any).webhook_token || cached.webhookToken || fallbackToken,
-      webhookTokenAlt: (org as any).webhook_token_alt || cached.webhookTokenAlt || `${fallbackToken}_alt`,
+      webhookToken: (org as any).webhook_token || null,
+      webhookTokenAlt: (org as any).webhook_token_alt || null,
       whatsappProvider: (org as any).whatsapp_provider || cached.whatsappProvider || null,
       whatsappApiKey: null,
       whatsappApiUrl: (org as any).whatsapp_api_url || cached.whatsappApiUrl || null,
