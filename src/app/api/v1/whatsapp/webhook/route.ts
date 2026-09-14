@@ -22,59 +22,30 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const orgParam = searchParams.get("org") || searchParams.get("token") || searchParams.get("orgSlug");
+    const orgToken = searchParams.get("token") || searchParams.get("org");
+    const contentLength = Number(request.headers.get("content-length") || "0");
+    if (contentLength > 100_000) {
+      return NextResponse.json({ success: false, error: "Payload too large" }, { status: 413 });
+    }
+    if (!orgToken || orgToken.length < 24 || orgToken.length > 200) {
+      return NextResponse.json({ success: false, error: "Valid webhook token required" }, { status: 401 });
+    }
 
     const payload = await request.json().catch(() => ({}));
     const supabase = createAdminClient();
 
-    // 1. Identify organization
-    let org: any = null;
+    // Organization is identified ONLY by the high-entropy webhook token.
+    const { data: orgs, error: orgError } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("webhook_token" as any, orgToken)
+      .eq("status", "ACTIVE")
+      .limit(1);
+    const org: any = orgs?.[0] || null;
 
-    if (orgParam) {
-      const { data: orgs } = await supabase
-        .from("organizations")
-        .select("*")
-        .or(`webhook_token.eq.${orgParam},slug.eq.${orgParam}`)
-        .limit(1);
-      if (orgs && orgs.length > 0) org = orgs[0];
+    if (orgError || !org) {
+      return NextResponse.json({ success: false, error: "Invalid webhook token" }, { status: 401 });
     }
-
-    // Fallback: match by destination / receiver phone number in payload
-    if (!org) {
-      const recipientPhone =
-        payload.to ||
-        payload.destination ||
-        payload.receiver ||
-        payload.businessPhoneNumber;
-
-      if (recipientPhone) {
-        const cleanRecipient = String(recipientPhone).replace(/[^0-9]/g, "");
-        const { data: orgs } = await supabase
-          .from("organizations")
-          .select("*")
-          .ilike("whatsapp_phone_number", `%${cleanRecipient.slice(-10)}%`)
-          .limit(1);
-        if (orgs && orgs.length > 0) org = orgs[0];
-      }
-    }
-
-    // Default to the first active org if still not found
-    if (!org) {
-      const { data: orgs } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("status", "ACTIVE")
-        .limit(1);
-      if (orgs && orgs.length > 0) org = orgs[0];
-    }
-
-    if (!org) {
-      return NextResponse.json(
-        { success: false, error: "Target organization not identified" },
-        { status: 404 }
-      );
-    }
-
     // 2. Parse incoming message details from various provider formats
     // Wati format: { waId: "919876543210", text: "Hello", senderName: "Rahul", id: "..." }
     // AiSensy format: { from: "919876543210", message: { text: "Hello" }, contact: { name: "Rahul" } }
