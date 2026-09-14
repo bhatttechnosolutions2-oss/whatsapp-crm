@@ -45,38 +45,16 @@ export async function loginUser(prevState: ActionResult | null, formData: FormDa
       password,
     });
 
-    // If email is not confirmed, auto-confirm via admin client and retry
-    if (error && error.message.toLowerCase().includes("email not confirmed")) {
-      const admin = getSupabaseAdmin();
-      if (admin) {
-        const { data: usersData } = await admin.auth.admin.listUsers();
-        const existingUser = usersData?.users.find((u) => u.email?.toLowerCase() === email);
-        if (existingUser) {
-          await admin.auth.admin.updateUserById(existingUser.id, {
-            email_confirm: true,
-          });
-          // Retry login
-          const retry = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-          error = retry.error;
-        }
-      }
-    }
-
     if (error) {
       return {
         success: false,
-        error: error.message === "Invalid login credentials"
-          ? "Invalid email or password"
-          : error.message,
+        error: "Invalid email or password",
       };
     }
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "An unexpected authentication error occurred",
+      error: "Authentication failed. Please try again.",
     };
   }
 
