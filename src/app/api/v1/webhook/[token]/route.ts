@@ -84,7 +84,7 @@ async function parsePayload(request: NextRequest): Promise<Record<string, any>> 
   }
 }
 
-export async function POST(
+const MAX_BODY_BYTES = 100_000;\n\nfunction tokenMatches(a: string, b: string) {\n  const aa = Buffer.from(a);\n  const bb = Buffer.from(b);\n  return aa.length === bb.length && require("crypto").timingSafeEqual(aa, bb);\n}\n\nexport async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
@@ -179,38 +179,7 @@ export async function POST(
 
     const supabase = createAdminClient();
 
-    // Look up organization: try slug or tk_<slug> format first (safe against pending migrations)
-    let org: any = null;
-
-    // 1. Direct slug match
-    const { data: slugOrgs } = await supabase
-      .from("organizations")
-      .select("*")
-      .eq("slug", token)
-      .limit(1);
-
-    if (slugOrgs && slugOrgs.length > 0) {
-      org = slugOrgs[0];
-    }
-
-    // 2. Format tk_<slug>_<id> match
-    if (!org && token.startsWith("tk_")) {
-      const parts = token.split("_");
-      if (parts.length >= 2) {
-        const potentialSlug = parts[1];
-        const { data: prefixOrgs } = await supabase
-          .from("organizations")
-          .select("*")
-          .eq("slug", potentialSlug)
-          .limit(1);
-        if (prefixOrgs && prefixOrgs.length > 0) {
-          org = prefixOrgs[0];
-        }
-      }
-    }
-
-    // 3. Fallback to webhook_token column
-    if (!org) {
+    const { data: tokenOrgs, error: tokenError } = await supabase\n      .from("organizations")\n      .select("id, name, status, whatsapp_enabled, whatsapp_phone_number, whatsapp_api_key, whatsapp_api_url, whatsapp_provider")\n      .eq("webhook_token" as any, token)\n      .limit(1);\n    if (!tokenError && tokenOrgs?.length === 1) org = tokenOrgs[0];\n\n    if (!org) {
       try {
         const { data: tokenOrgs } = await supabase
           .from("organizations")
