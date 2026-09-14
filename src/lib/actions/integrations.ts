@@ -4,8 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { OrgIntegrationsConfig, WhatsAppMessageItem, WhatsAppProvider } from "@/types/crm";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 
 export interface IntegrationActionResult {
   success: boolean;
@@ -14,46 +12,7 @@ export interface IntegrationActionResult {
   token?: string;
 }
 
-const CACHE_FILE = path.join(process.cwd(), "data", "integrations_cache.json");
-
-function ensureCacheDir() {
-  const dir = path.dirname(CACHE_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
-
-function getStoredConfig(orgId: string): Partial<OrgIntegrationsConfig> {
-  try {
-    ensureCacheDir();
-    if (!fs.existsSync(CACHE_FILE)) return {};
-    const raw = fs.readFileSync(CACHE_FILE, "utf-8");
-    const all = JSON.parse(raw);
-    return all[orgId] || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveStoredConfig(orgId: string, updates: Partial<OrgIntegrationsConfig>) {
-  try {
-    ensureCacheDir();
-    let all: Record<string, any> = {};
-    if (fs.existsSync(CACHE_FILE)) {
-      try {
-        all = JSON.parse(fs.readFileSync(CACHE_FILE, "utf-8"));
-      } catch {
-        all = {};
-      }
-    }
-    all[orgId] = { ...(all[orgId] || {}), ...updates };
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(all, null, 2), "utf-8");
-  } catch (err) {
-    console.warn("Could not write integrations cache:", err);
-  }
-}
-
-async function getAuthenticatedUserOrg() {
+// Integration secrets are stored only in Supabase server-side columns.\n// Never persist provider credentials to local JSON files.\nfunction getStoredConfig(_orgId: string): Partial<OrgIntegrationsConfig> { return {}; }\nfunction saveStoredConfig(_orgId: string, _updates: Partial<OrgIntegrationsConfig>) { /* intentionally disabled */ }\n\nasync function getAuthenticatedUserOrg() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -103,19 +62,19 @@ export async function getOrganizationIntegrations(): Promise<OrgIntegrationsConf
       webhookToken: (org as any).webhook_token || cached.webhookToken || fallbackToken,
       webhookTokenAlt: (org as any).webhook_token_alt || cached.webhookTokenAlt || `${fallbackToken}_alt`,
       whatsappProvider: (org as any).whatsapp_provider || cached.whatsappProvider || null,
-      whatsappApiKey: (org as any).whatsapp_api_key || cached.whatsappApiKey || null,
+      whatsappApiKey: null,
       whatsappApiUrl: (org as any).whatsapp_api_url || cached.whatsappApiUrl || null,
       whatsappPhoneNumber: (org as any).whatsapp_phone_number || cached.whatsappPhoneNumber || null,
       whatsappInstanceId: (org as any).whatsapp_instance_id || cached.whatsappInstanceId || null,
-      whatsappWebhookSecret: (org as any).whatsapp_webhook_secret || cached.whatsappWebhookSecret || null,
+      whatsappWebhookSecret: null,
       whatsappEnabled: Boolean((org as any).whatsapp_enabled ?? cached.whatsappEnabled),
       googleAdsCustomerId: (org as any).google_ads_customer_id || cached.googleAdsCustomerId || null,
-      googleAdsDeveloperToken: (org as any).google_ads_developer_token || cached.googleAdsDeveloperToken || null,
+      googleAdsDeveloperToken: null,
       googleAdsClientId: (org as any).google_ads_client_id || cached.googleAdsClientId || null,
-      googleAdsClientSecret: (org as any).google_ads_client_secret || cached.googleAdsClientSecret || null,
-      googleAdsRefreshToken: (org as any).google_ads_refresh_token || cached.googleAdsRefreshToken || null,
+      googleAdsClientSecret: null,
+      googleAdsRefreshToken: null,
       googleAdsEnabled: Boolean((org as any).google_ads_enabled ?? cached.googleAdsEnabled),
-      metaAdsAccessToken: (org as any).meta_ads_access_token || cached.metaAdsAccessToken || null,
+      metaAdsAccessToken: null,
       metaAdsAccountId: (org as any).meta_ads_account_id || cached.metaAdsAccountId || null,
       metaAdsAppId: (org as any).meta_ads_app_id || cached.metaAdsAppId || null,
       metaAdsEnabled: Boolean((org as any).meta_ads_enabled ?? cached.metaAdsEnabled),
@@ -155,7 +114,7 @@ export async function saveWhatsAppIntegration(data: {
       .from("organizations")
       .update({
         whatsapp_provider: data.provider,
-        whatsapp_api_key: data.apiKey || null,
+        whatsapp_api_key: data.apiKey || undefined,
         whatsapp_api_url: data.apiUrl || null,
         whatsapp_phone_number: data.phoneNumber || null,
         whatsapp_instance_id: data.instanceId || null,
@@ -200,10 +159,10 @@ export async function saveGoogleAdsIntegration(data: {
       .from("organizations")
       .update({
         google_ads_customer_id: data.customerId || null,
-        google_ads_developer_token: data.developerToken || null,
+        google_ads_developer_token: data.developerToken || undefined,
         google_ads_client_id: data.clientId || null,
-        google_ads_client_secret: data.clientSecret || null,
-        google_ads_refresh_token: data.refreshToken || null,
+        google_ads_client_secret: data.clientSecret || undefined,
+        google_ads_refresh_token: data.refreshToken || undefined,
         google_ads_enabled: data.enabled,
       } as any)
       .eq("id", auth.orgId);
@@ -240,7 +199,7 @@ export async function saveMetaAdsIntegration(data: {
     await supabase
       .from("organizations")
       .update({
-        meta_ads_access_token: data.accessToken || null,
+        meta_ads_access_token: data.accessToken || undefined,
         meta_ads_account_id: data.accountId || null,
         meta_ads_app_id: data.appId || null,
         meta_ads_enabled: data.enabled,
