@@ -39,12 +39,28 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Protect /admin/* routes (redirect to standalone admin-login page)
-  // Exclude /admin-login itself to prevent redirect loop
-  if (pathname.startsWith("/admin") && pathname !== "/admin-login" && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin-login";
-    return NextResponse.redirect(url);
+  // Protect /admin/* routes with a server-side role check.
+  if (pathname.startsWith("/admin") && pathname !== "/admin-login") {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin-login";
+      return NextResponse.redirect(url);
+    }
+
+    const { data: membership } = await supabase
+      .from("organization_members")
+      .select("role,status")
+      .eq("user_id", user.id)
+      .eq("status", "ACTIVE")
+      .in("role", ["SUPER_ADMIN"])
+      .limit(1)
+      .maybeSingle();
+
+    if (!membership) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/app/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   // Protect /app routes
