@@ -33,10 +33,10 @@ export async function createClient(): Promise<SupabaseClient<Database>> {
 
 export function createAdminClient(): SupabaseClient<Database> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-  const serviceKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "placeholder-key";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for admin operations.");
+  }
 
   const { createClient: createSupabaseClient } = require("@supabase/supabase-js");
   return createSupabaseClient(supabaseUrl, serviceKey, {
