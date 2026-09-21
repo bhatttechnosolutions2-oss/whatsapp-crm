@@ -53,7 +53,7 @@ function StatCard({
 
 export default async function AdminDashboardPage() {
   const { ok } = await checkSuperAdminAccess().catch(() => ({ ok: false }));
-  if (!ok) redirect("/admin/login?error=unauthorized");
+  if (!ok) redirect("/admin-login?error=unauthorized");
 
   const stats = await getAdminStats();
 
@@ -186,7 +186,7 @@ WHERE user_id = (
 );`}
         </pre>
         <p className="mt-3 text-xs text-violet-600">
-          Then log in at <strong>/admin/login</strong> with that email &amp; password.
+          Then log in at <strong>/admin-login</strong> with that email &amp; password.
         </p>
       </div>
     </div>

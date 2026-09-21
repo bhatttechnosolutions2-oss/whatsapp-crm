@@ -51,6 +51,32 @@ export async function loginUser(prevState: ActionResult | null, formData: FormDa
         error: "Invalid email or password",
       };
     }
+    // Post-authentication check: Ensure the user's organization is ACTIVE
+    if (authData.user) {
+      const { data: member } = await supabase
+        .from("organization_members")
+        .select("status, organizations(status)")
+        .eq("user_id", authData.user.id)
+        .maybeSingle();
+
+      const memberData = member as unknown as Record<string, any> | null;
+      const orgStatus = memberData?.organizations?.status;
+      const memStatus = memberData?.status;
+      
+      if (orgStatus === "INACTIVE") {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: "Your account is pending Super Admin approval. Please wait for the confirmation email.",
+        };
+      } else if (orgStatus === "SUSPENDED" || memStatus === "SUSPENDED") {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: "Your account has been suspended. Please contact support.",
+        };
+      }
+    }
   } catch (err: unknown) {
     return {
       success: false,
@@ -174,7 +200,7 @@ export async function registerUser(prevState: ActionResult | null, formData: For
         email: email,
         currency: "INR",
         timezone: "Asia/Kolkata",
-        status: "ACTIVE",
+        status: "INACTIVE", // Changed to INACTIVE for admin approval workflow
       })
       .select("id")
       .single();
@@ -191,7 +217,7 @@ export async function registerUser(prevState: ActionResult | null, formData: For
           organization_id: orgId,
           user_id: userId,
           role: "ADMIN",
-          status: "ACTIVE",
+          status: "ACTIVE", // keep member active, org is inactive
         });
 
       if (memberError) {
@@ -208,27 +234,39 @@ export async function registerUser(prevState: ActionResult | null, formData: For
         metadata: {
           business_name: businessName,
           creator_email: email,
+          status: "INACTIVE"
         },
       });
+      
+      // EMAIL SIMULATION: Welcome Email (Registration Received)
+      console.log(`
+      =========================================================
+      EMAIL NOTIFICATION TO: ${email}
+      SUBJECT: Welcome to Antigravity CRM - Registration Received
+      
+      Hi ${fullName},
+      
+      Thank you for registering your company "${businessName}" with Antigravity CRM.
+      Your account has been successfully created and is currently pending approval from our administration team.
+      
+      You will receive another email with your login details once your account is approved.
+      =========================================================
+      `);
     }
 
-    // 6. Sign in automatically
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      console.error("Auto sign-in error after register:", signInError);
-    }
+    // 6. Registration successful, but DO NOT sign in automatically.
+    // Instead, return success message for the UI to handle.
+    return {
+      success: true,
+      message: "Registration successful! Your account is pending Super Admin approval. Please check your email.",
+    };
+    
   } catch (err: unknown) {
     return {
       success: false,
       error: err instanceof Error ? err.message : "An unexpected error occurred during registration",
     };
   }
-
-  redirect("/app/dashboard");
 }
 
 export async function forgotPassword(prevState: ActionResult | null, formData: FormData): Promise<ActionResult> {

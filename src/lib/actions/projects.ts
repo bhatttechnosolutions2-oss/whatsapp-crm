@@ -45,6 +45,11 @@ export async function createProject(
     return { success: false, error: "Unauthorized access" };
   }
 
+  // Intra-tenant RBAC: CLIENT cannot create projects
+  if (auth.role === "CLIENT") {
+    return { success: false, error: "Unauthorized: Client accounts cannot create projects" };
+  }
+
   const rawData = {
     clientId: (formData.get("clientId") as string)?.trim(),
     name: (formData.get("name") as string)?.trim(),
@@ -153,6 +158,11 @@ export async function updateProjectStatus(
   const auth = await getAuthenticatedUserOrg();
   if (!auth) {
     return { success: false, error: "Unauthorized access" };
+  }
+
+  // Intra-tenant RBAC: CLIENT cannot modify project status
+  if (auth.role === "CLIENT") {
+    return { success: false, error: "Unauthorized: Client accounts cannot modify project status" };
   }
 
   try {

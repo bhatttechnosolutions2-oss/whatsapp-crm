@@ -7,6 +7,8 @@ import {
   LogOut,
   Zap,
   ShieldCheck,
+  Network,
+  MessageCircle
 } from "lucide-react";
 
 
@@ -20,6 +22,8 @@ async function AdminSidebar() {
     { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/organizations", label: "Organizations", icon: Building2 },
     { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/leads", label: "Global Leads", icon: Network },
+    { href: "/admin/whatsapp", label: "Global WhatsApp", icon: MessageCircle },
   ];
 
   return (

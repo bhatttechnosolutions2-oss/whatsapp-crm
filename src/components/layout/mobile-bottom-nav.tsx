@@ -12,7 +12,6 @@ export function MobileBottomNav() {
     { label: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
     { label: "Leads", href: "/app/leads", icon: Users },
     { label: "WhatsApp", href: "/app/whatsapp", icon: MessageSquare },
-    { label: "Projects", href: "/app/projects", icon: Briefcase },
     { label: "Profile", href: "/app/profile", icon: User },
   ];
 

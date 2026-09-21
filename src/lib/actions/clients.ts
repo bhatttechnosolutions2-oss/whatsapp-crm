@@ -45,6 +45,11 @@ export async function createClientRecord(
     return { success: false, error: "Unauthorized access" };
   }
 
+  // Intra-tenant RBAC: CLIENT cannot create client records
+  if (auth.role === "CLIENT") {
+    return { success: false, error: "Unauthorized: Client accounts cannot create client records" };
+  }
+
   const rawData = {
     fullName: (formData.get("fullName") as string)?.trim(),
     phone: (formData.get("phone") as string)?.trim(),
@@ -103,6 +108,11 @@ export async function convertLeadToClient(leadId: string): Promise<ClientActionR
   const auth = await getAuthenticatedUserOrg();
   if (!auth) {
     return { success: false, error: "Unauthorized access" };
+  }
+
+  // Intra-tenant RBAC: CLIENT cannot convert leads
+  if (auth.role === "CLIENT") {
+    return { success: false, error: "Unauthorized: Client accounts cannot convert leads to clients" };
   }
 
   try {

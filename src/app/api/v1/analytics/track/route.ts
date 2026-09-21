@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -48,6 +49,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Empty body" }, { status: 400 });
     }
 
+    if (rawBody.length > 32768) {
+      return NextResponse.json({ success: false, error: "Payload too large" }, { status: 413 });
+    }
+
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous-ip";
+
+    // Rate limiting: 120 tracking calls per minute per IP
+    const rateLimit = checkRateLimit(`track:${ipAddress}`, 120, 60 * 1000);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { success: false, error: "Rate limit exceeded" },
+        { status: 429 }
+      );
+    }
+
     const payload = JSON.parse(rawBody);
     const {
       orgSlug,
@@ -73,14 +89,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    // Use server-side admin client to validate organization and persist anonymous telemetry safely
+    const supabase = createAdminClient();
 
-    // Find organization by slug
+    // Find organization by slug and ensure it is active
     const { data: org, error: orgError } = await supabase
       .from("organizations")
       .select("id, status")
-      .eq("slug", orgSlug)
-      .single();
+      .eq("slug", String(orgSlug).trim())
+      .maybeSingle();
 
     if (orgError || !org || org.status !== "ACTIVE") {
       return NextResponse.json(
@@ -90,7 +107,6 @@ export async function POST(request: NextRequest) {
     }
 
     const userAgent = request.headers.get("user-agent") || "";
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0] || null;
     const deviceType = parseDevice(userAgent, screen?.width);
     const browser = parseBrowser(userAgent);
     const os = parseOS(userAgent);

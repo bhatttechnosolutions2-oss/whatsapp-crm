@@ -25,10 +25,22 @@ import {
   FolderOpen,
 } from "lucide-react";
 
+import { redirect } from "next/navigation";
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const userContext = await getCurrentUserContext();
+
+  // If user is CLIENT or tenant user and onboarding is not completed, route to onboarding wizard
+  if (
+    userContext &&
+    userContext.membership?.role !== "SUPER_ADMIN" &&
+    (userContext.organization as any)?.onboarding_completed === false
+  ) {
+    redirect("/app/onboarding");
+  }
+
   const userName = userContext?.user?.full_name?.split(" ")[0] || "there";
   const stats = await getDashboardLeadStats();
 

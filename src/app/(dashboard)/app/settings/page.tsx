@@ -76,6 +76,14 @@ export default async function SettingsPage() {
               <p className="font-medium text-slate-800">{org?.timezone || "Asia/Kolkata"}</p>
             </div>
           </div>
+          <div className="pt-3 border-t border-slate-100 flex justify-end">
+            <a
+              href="/app/settings/business"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 font-semibold text-xs transition"
+            >
+              Configure Business Profile & Services →
+            </a>
+          </div>
         </CardContent>
       </Card>
 

@@ -33,13 +33,25 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch (error) {
+    console.error("Supabase auth error in middleware:", error);
+  }
 
   const pathname = request.nextUrl.pathname;
 
-  // Protect /admin/* routes with a server-side role check.
+  // Redirect legacy /admin/login to standalone /admin-login
+  if (pathname === "/admin/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin-login";
+    return NextResponse.redirect(url);
+  }
+
+  // Protect /admin/* routes (accessible ONLY to authenticated SUPER_ADMIN users)
+  // Exclude /admin-login itself to prevent redirect loop
   if (pathname.startsWith("/admin") && pathname !== "/admin-login") {
     if (!user) {
       const url = request.nextUrl.clone();
@@ -47,28 +59,64 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const { data: membership } = await supabase
+    // Server-side check: verify if the authenticated user has the SUPER_ADMIN role
+    const { data: adminMember } = await supabase
       .from("organization_members")
-      .select("role,status")
+      .select("role")
       .eq("user_id", user.id)
-      .eq("status", "ACTIVE")
-      .in("role", ["SUPER_ADMIN"])
+      .eq("role", "SUPER_ADMIN")
       .limit(1)
       .maybeSingle();
 
-    if (!membership) {
+    if (!adminMember) {
       const url = request.nextUrl.clone();
-      url.pathname = "/app/dashboard";
+      url.pathname = "/admin-login";
+      url.searchParams.set("error", "unauthorized");
       return NextResponse.redirect(url);
     }
   }
 
   // Protect /app routes
-  if (pathname.startsWith("/app") && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(url);
+  if (pathname.startsWith("/app")) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Check if user is SUPER_ADMIN (super admins are never blocked by org suspension)
+    const { data: superAdmin } = await supabase
+      .from("organization_members")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("role", "SUPER_ADMIN")
+      .limit(1)
+      .maybeSingle();
+
+    if (!superAdmin) {
+      // Check organization status
+      const { data: membership }: any = await (supabase as any)
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (membership?.organization_id) {
+        const { data: org }: any = await (supabase as any)
+          .from("organizations")
+          .select("status")
+          .eq("id", membership.organization_id)
+          .maybeSingle();
+
+        if (org?.status === "SUSPENDED") {
+          const url = request.nextUrl.clone();
+          url.pathname = "/suspended";
+          return NextResponse.redirect(url);
+        }
+      }
+    }
   }
 
   // If authenticated user visits login or register, redirect to /app/dashboard

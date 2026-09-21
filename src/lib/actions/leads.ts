@@ -46,6 +46,11 @@ export async function createLead(
     return { success: false, error: "Unauthorized access" };
   }
 
+  // Intra-tenant RBAC: CLIENT role cannot create leads
+  if (auth.role === "CLIENT") {
+    return { success: false, error: "Unauthorized: Client accounts cannot create leads" };
+  }
+
   const rawData = {
     fullName: (formData.get("fullName") as string)?.trim(),
     phone: (formData.get("phone") as string)?.trim(),
@@ -137,6 +142,11 @@ export async function updateLeadStatus(
     return { success: false, error: "Unauthorized access" };
   }
 
+  // Intra-tenant RBAC: CLIENT role cannot modify lead status
+  if (auth.role === "CLIENT") {
+    return { success: false, error: "Unauthorized: Client accounts cannot modify lead status" };
+  }
+
   try {
     const supabase = await createClient();
 
@@ -183,6 +193,11 @@ export async function addLeadActivity(
   const auth = await getAuthenticatedUserOrg();
   if (!auth) {
     return { success: false, error: "Unauthorized access" };
+  }
+
+  // Intra-tenant RBAC: CLIENT role cannot add lead activities
+  if (auth.role === "CLIENT") {
+    return { success: false, error: "Unauthorized: Client accounts cannot log activities" };
   }
 
   const rawData = {
@@ -232,6 +247,11 @@ export async function deleteLead(leadId: string): Promise<LeadActionResult> {
   const auth = await getAuthenticatedUserOrg();
   if (!auth) {
     return { success: false, error: "Unauthorized access" };
+  }
+
+  // Intra-tenant RBAC: ONLY ADMIN and SUPER_ADMIN can delete leads
+  if (auth.role !== "ADMIN" && auth.role !== "SUPER_ADMIN") {
+    return { success: false, error: "Unauthorized: Only administrators can delete leads" };
   }
 
   try {

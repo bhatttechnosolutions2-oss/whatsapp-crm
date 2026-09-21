@@ -27,7 +27,6 @@ export function AppHeader({ userContext }: AppHeaderProps) {
     { name: "WhatsApp Leads", href: "/app/whatsapp" },
     { name: "All Leads", href: "/app/leads?view=all" },
     { name: "Clients", href: "/app/clients" },
-    { name: "Projects", href: "/app/projects" },
     { name: "Invoices", href: "/app/payments" },
     { name: "Ads", href: "/app/ads" },
     { name: "Integrations", href: "/app/settings/integrations" },

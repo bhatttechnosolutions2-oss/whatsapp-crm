@@ -35,6 +35,18 @@ export function AdsView({ adsSummary }: AdsViewProps) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null);
+  const [metaConnected, setMetaConnected] = useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    Promise.all([
+      fetch("/api/v1/ads/google").then((r) => r.json()).catch(() => null),
+      fetch("/api/v1/ads/meta").then((r) => r.json()).catch(() => null),
+    ]).then(([g, m]) => {
+      if (g && typeof g.connected === "boolean") setGoogleConnected(g.connected);
+      if (m && typeof m.connected === "boolean") setMetaConnected(m.connected);
+    });
+  }, []);
 
   const handleSyncLiveAds = async () => {
     setIsSyncing(true);
@@ -47,9 +59,24 @@ export function AdsView({ adsSummary }: AdsViewProps) {
       ]);
       const gData = await gRes.json();
       const mData = await mRes.json();
-      setSyncMessage(
-        `✅ Synced: ${gData.count || 0} Google & ${mData.count || 0} Meta campaigns updated!`
-      );
+
+      if (typeof gData.connected === "boolean") setGoogleConnected(gData.connected);
+      if (typeof mData.connected === "boolean") setMetaConnected(mData.connected);
+
+      const msgs: string[] = [];
+      if (gData.connected === false) {
+        msgs.push("Google Ads: Not connected");
+      } else {
+        msgs.push(`Google Ads: ${gData.count || 0} campaigns`);
+      }
+
+      if (mData.connected === false) {
+        msgs.push("Meta Ads: Not connected");
+      } else {
+        msgs.push(`Meta Ads: ${mData.count || 0} campaigns`);
+      }
+
+      setSyncMessage(msgs.join(" • "));
       router.refresh();
     } catch (e: any) {
       setSyncMessage(`❌ Sync error: ${e.message}`);
@@ -278,17 +305,80 @@ export function AdsView({ adsSummary }: AdsViewProps) {
             <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Megaphone className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-semibold text-slate-800">No ad campaigns tracked</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-              Add your Google and Meta ad campaigns to track leads generated, click costs, and ROI.
-            </p>
-            <Button
-              onClick={() => setIsAddOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Track First Campaign
-            </Button>
+
+            {platformFilter === "GOOGLE_ADS" ? (
+              googleConnected === false ? (
+                <>
+                  <h3 className="text-base font-semibold text-slate-800">Google Ads Not Connected</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                    Connect your Google Ads account to view live performance.
+                  </p>
+                  <Link href="/app/settings/integrations">
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Connect Google Ads
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-base font-semibold text-slate-800">No campaigns found.</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                    Your Google Ads account is connected, but there are no active campaigns running in the selected date range.
+                  </p>
+                </>
+              )
+            ) : platformFilter === "META_ADS" ? (
+              metaConnected === false ? (
+                <>
+                  <h3 className="text-base font-semibold text-slate-800">Meta Ads Not Connected</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                    Connect your Meta Ads account to view live performance.
+                  </p>
+                  <Link href="/app/settings/integrations">
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Connect Meta Ads
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-base font-semibold text-slate-800">No campaigns found.</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                    Your Meta Ads account is connected, but there are no active campaigns running in the selected date range.
+                  </p>
+                </>
+              )
+            ) : (
+              <>
+                <h3 className="text-base font-semibold text-slate-800">
+                  {googleConnected === false && metaConnected === false
+                    ? "Connect your Google Ads or Meta Ads account"
+                    : "No campaigns found."}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                  {googleConnected === false && metaConnected === false
+                    ? "Connect your Google Ads account to view live performance."
+                    : "No live ad campaigns currently tracked."}
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <Link href="/app/settings/integrations">
+                    <Button variant="outline" className="rounded-xl">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Manage Integrations
+                    </Button>
+                  </Link>
+                  <Button
+                    onClick={() => setIsAddOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Track Campaign
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

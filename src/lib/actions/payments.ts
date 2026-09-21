@@ -45,6 +45,11 @@ export async function createInvoice(
     return { success: false, error: "Unauthorized access" };
   }
 
+  // Intra-tenant RBAC: Only ADMIN or SUPER_ADMIN can create invoices
+  if (auth.role !== "ADMIN" && auth.role !== "SUPER_ADMIN") {
+    return { success: false, error: "Unauthorized: Only administrators can create invoices" };
+  }
+
   const parseResult = createInvoiceSchema.safeParse(payload);
   if (!parseResult.success) {
     return {
@@ -129,6 +134,11 @@ export async function updateInvoiceStatus(
   const auth = await getAuthenticatedUserOrg();
   if (!auth) {
     return { success: false, error: "Unauthorized access" };
+  }
+
+  // Intra-tenant RBAC: Only ADMIN or SUPER_ADMIN can modify invoice status
+  if (auth.role !== "ADMIN" && auth.role !== "SUPER_ADMIN") {
+    return { success: false, error: "Unauthorized: Only administrators can modify invoices" };
   }
 
   const supabase = await createClient();
