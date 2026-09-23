@@ -12,7 +12,12 @@ export interface IntegrationActionResult {
   token?: string;
 }
 
-// Integration secrets are stored only in Supabase server-side columns.\n// Never persist provider credentials to local JSON files.\nfunction getStoredConfig(_orgId: string): Partial<OrgIntegrationsConfig> { return {}; }\nfunction saveStoredConfig(_orgId: string, _updates: Partial<OrgIntegrationsConfig>) { /* intentionally disabled */ }\n\nasync function getAuthenticatedUserOrg() {
+// Integration secrets are stored only in Supabase server-side columns.
+// Never persist provider credentials to local JSON files.
+function getStoredConfig(_orgId: string): Partial<OrgIntegrationsConfig> { return {}; }
+function saveStoredConfig(_orgId: string, _updates: Partial<OrgIntegrationsConfig>) { /* intentionally disabled */ }
+
+async function getAuthenticatedUserOrg() {
   const supabase = await createClient();
   const {
     data: { user },
